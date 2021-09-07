@@ -4,7 +4,7 @@ import iso_code
 import pandas as pd
 
 def main():
-    name="lamost"
+    name="galah"
     #I am reding the input data as a pandas dataframe because it handles large files much better
     #and saves memory. Also, it is faster. I set up the data type for source id to read the entire number as integer
     #and avoid truncating it
@@ -21,7 +21,7 @@ def main():
     # iso_code.read_isochrones(name)
     # iso_code.scatter_plot(name)
     # iso_code.check_parallax(name)
-    # end = time.time()
+    end = time.time()
 
     print("\nTime: "+str(end-start))
 

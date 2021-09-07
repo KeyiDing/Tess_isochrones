@@ -314,7 +314,9 @@ def check_parallax(name):
             sigma = data['parallax'].std()
             parallax = params['parallax'][s]
             if parallax>(med + sigma*3) or parallax < (med - sigma*3):
-                count += 1
+                if (parallax-med)>1 or (parallax-med)<-1:
+                    print(data["AV"].median())
+                    count += 1
 
         except OSError:
             continue
