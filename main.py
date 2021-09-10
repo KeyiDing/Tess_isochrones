@@ -4,7 +4,7 @@ import iso_code
 import pandas as pd
 
 def main():
-    name="galah"
+    name="rave"
     #I am reding the input data as a pandas dataframe because it handles large files much better
     #and saves memory. Also, it is faster. I set up the data type for source id to read the entire number as integer
     #and avoid truncating it
