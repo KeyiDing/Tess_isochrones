@@ -246,7 +246,8 @@ def run_isochrones(row,name):
     #model1._bounds['AV'] = (0,.3) #
     #model1._bounds['feh'] = (params['feh'][idx].values[0] - params['err_feh'][idx].values[0], params['feh'][idx].values[0] + params['err_feh'][idx].values[0])
     #Runs and saves the results.
-    os.mkdir("./{n}_plots/{id}".format(n=name,id=int(row['dr3_source_id'].values[0])))
+    if os.path.isdir("./{n}_plots/{id}".format(n=name,id=int(row['dr3_source_id'].values[0]))) == False:
+        os.mkdir("./{n}_plots/{id}".format(n=name,id=int(row['dr3_source_id'].values[0])))
     model1.fit(refit=True,n_live_points=1000,evidence_tolerance=0.5)
     model1.derived_samples.to_csv("{f}_isochrones/{id}_take2.csv".format(f=name,id=int(row['dr3_source_id'].values[0])), index_label='index')
     plot1 = model1.corner_observed()
