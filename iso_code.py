@@ -190,14 +190,14 @@ def run_isochrones(row,name):
         mags_iso['WISE_W2'] = (row['wise_w2'].values[0],row['wise_w2_unc'].values[0])
 
     # allsky: a star shouldn't have both allwise and wise-allsky
-    if row['allsky_w1'].isna().values[0] ==  False:
-        count += 1
-        bands.append('WISE_W1')
-        mags_iso['WISE_W1'] = (row['allsky_w1'].values[0],row['allsky_w1_unc'].values[0])
-    if row['allsky_w2'].isna().values[0] ==  False:
-        count += 1
-        bands.append('WISE_W2')
-        mags_iso['WISE_W2'] = (row['allsky_w2'].values[0],row['allsky_w2_unc'].values[0])
+    # if row['allsky_w1'].isna().values[0] ==  False:
+    #     count += 1
+    #     bands.append('WISE_W1')
+    #     mags_iso['WISE_W1'] = (row['allsky_w1'].values[0],row['allsky_w1_unc'].values[0])
+    # if row['allsky_w2'].isna().values[0] ==  False:
+    #     count += 1
+    #     bands.append('WISE_W2')
+    #     mags_iso['WISE_W2'] = (row['allsky_w2'].values[0],row['allsky_w2_unc'].values[0])
 
     # if nothing other than Gaia DR2 G-band data are available by this step,
     # then add Gaia DR2 G_BP and G_RP data with appropriate uncertainties
@@ -216,6 +216,7 @@ def run_isochrones(row,name):
     and SingleStarModel create an initial stellar model based on your parameters
     and the grid of isochrones from get_ichrone.
     """
+
     mist = get_ichrone('mist', basic=False, bands=bands)
     model1 = SingleStarModel(mist, **params_iso, **mags_iso)
     """
@@ -248,7 +249,7 @@ def run_isochrones(row,name):
     #Runs and saves the results.
     if os.path.isdir("./{n}_plots/{id}".format(n=name,id=int(row['dr3_source_id'].values[0]))) == False:
         os.mkdir("./{n}_plots/{id}".format(n=name,id=int(row['dr3_source_id'].values[0])))
-    model1.fit(refit=True,n_live_points=1000,evidence_tolerance=0.5)
+    model1.fit(refit=True,n_live_points=1000,evidence_tolerance=0.5, max_iter=75000)
     model1.derived_samples.to_csv("{f}_isochrones/{id}_take2.csv".format(f=name,id=int(row['dr3_source_id'].values[0])), index_label='index')
     plot1 = model1.corner_observed()
     plt.savefig("{f}_plots/{id1}/corner_{id2}.png".format(f=name,id1=int(row['dr3_source_id'].values[0]),id2=int(row['dr3_source_id'].values[0])))
