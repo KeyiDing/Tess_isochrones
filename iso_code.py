@@ -239,8 +239,24 @@ def run_isochrones(row,name):
     #I create a directory based on the Gaia_dr2_source_id, and save both physical plot and observed plot to that directory
     if os.path.isdir("./{n}_plots/{id}".format(n=name,id=int(row['dr3_source_id'].values[0]))) == False:
         os.mkdir("./{n}_plots/{id}".format(n=name,id=int(row['dr3_source_id'].values[0])))
-    #fit the model
+    #fit the model, max_iter is set to prevent multinest from starting from a "wrong" point so that it takes a long time and 
+    #huge amount of memory to fit the parameters
     model1.fit(refit=True,n_live_points=1000,evidence_tolerance=0.5, max_iter=75000)
+    
+    #a "protection mechanism" that ensures the derived samples is large enough to produce the plots once max_iter is set
+    #unlikely to reach this if statement
+    if len(model1.derived_samples)<8 or len(model1.derived_samples)<len(bands):
+        model1 = SingleStarModel(mist, **params_iso, **mags_iso)
+        model1.set_prior(feh=FlatPrior((-2, 0)), AV=PowerLawPrior(alpha=-2., bounds=(0.0001, 1.0)))
+        model1.fit(refit=True, n_live_points=1000, evidence_tolerance=0.5, max_iter=150000)
+        if len(model1.derived_samples)<8 or len(model1.derived_samples)<len(bands):
+            model1.fit(refit=True, n_live_points=1000, evidence_tolerance=0.5, max_iter=225000)
+            model1.set_prior(feh=FlatPrior((-2, 0)), AV=PowerLawPrior(alpha=-2., bounds=(0.0001, 1.0)))
+            model1.fit(refit=True, n_live_points=1000, evidence_tolerance=0.5, max_iter=150000)
+            if len(model1.derived_samples) < 8 or len(model1.derived_samples)<len(bands):
+                return
+
+    #save the derived sample to a csv file
     model1.derived_samples.to_csv("{f}_isochrones/{id}_take2.csv".format(f=name,id=int(row['dr3_source_id'].values[0])), index_label='index')
     #save the plots
     plot1 = model1.corner_observed()
