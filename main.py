@@ -13,25 +13,22 @@ def main():
     #Although standard pratice is to vectorize usage, in our case we do need to use a for loop.
     #Just a for loop to run it for all the stars in my file list
     len = data_input.shape[0]
+    #the "count" array and time array that keeps track of which star is running and how long it takes
+    #I use the row index of each star in the input file as the 'count' instead of Gaia_source_ids 
+    #because if the job crashes on MARCC,it is easier to find the starting point to restart the job
     count = []
     times = []
-    for i in range(6134,len):
+    for i in range(0,len):
         #The iloc function will get the row we are interested in running and keep the data structure
         start = time.time()
-        try:
-            iso_code.run_isochrones(data_input.iloc[[i]],name)
-        except ZeroDivisionError:
-            continue
-        # with open('count.txt', 'w') as file:
-        #     file.write(str(i))
+        #run isochrones
+        iso_code.run_isochrones(data_input.iloc[[i]],name)
         end = time.time()
+        #append the row index and time after a star has finished running, and write the result to time.csv
         count.append(i)
         times.append(end-start)
         time_df = pd.DataFrame({"count":count,"time":times})
         time_df.to_csv("time.csv",index=False)
-    # iso_code.read_isochrones(name)
-    # iso_code.scatter_plot(name)
-    # iso_code.check_parallax(name)
 
 # Press the green button in the gutter to run the script.
 if __name__ == '__main__':

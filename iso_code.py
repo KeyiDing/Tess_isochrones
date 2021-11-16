@@ -44,7 +44,7 @@ def run_isochrones(row,name):
     pandas is generally better, but because we are dealing in this section with a single row it
     should not matter
     """
-    #parallax cannot be negative
+    #parallax cannot be negative; if so, just stop
     if row['parallax'].values[0]<0:
         return
 
@@ -55,17 +55,17 @@ def run_isochrones(row,name):
     you actually tell isochrones the values and uncertainties of each pass band. This
     is done through a dictionary, which I am calling mags_iso below.
     """
-    # count how many Photometry are available
+    # count how many Photometry are available(this is a parameter that helps me with the logic I use
+    # to decide which photometry to use)
     count = 0
 
     bands = ['Gaia_G_DR2Rev']
     mags_iso = {'Gaia_G_DR2Rev':(row['gaia_g'].values[0],row['gaia_g_unc'].values[0])}
-    """
-    In this example all the stars have Gaia G, 2MASS J, H, and K, and Wise W1, W2, and W3
-    pass band data. However some stars data for some other passbands. The if(s) below
-    append the bands and dictionary with data for other pass bands when available. See the
-    data in the file appended.
-    """
+
+    #Change the following section based on your need. In my implementation, I check the availability of
+    #each photometry, and append them based on the logic of choosing photometry
+    #To add a photometry, append bands array with the band name, and add the data to mags_iso dictionary
+
     # if GALEX FUV/NUV are available, then always include them
     if row['galex_fuv'].isna().values[0]==False:
         count += 1
@@ -189,15 +189,6 @@ def run_isochrones(row,name):
         bands.append('WISE_W2')
         mags_iso['WISE_W2'] = (row['wise_w2'].values[0],row['wise_w2_unc'].values[0])
 
-    # allsky: a star shouldn't have both allwise and wise-allsky
-    # if row['allsky_w1'].isna().values[0] ==  False:
-    #     count += 1
-    #     bands.append('WISE_W1')
-    #     mags_iso['WISE_W1'] = (row['allsky_w1'].values[0],row['allsky_w1_unc'].values[0])
-    # if row['allsky_w2'].isna().values[0] ==  False:
-    #     count += 1
-    #     bands.append('WISE_W2')
-    #     mags_iso['WISE_W2'] = (row['allsky_w2'].values[0],row['allsky_w2_unc'].values[0])
 
     # if nothing other than Gaia DR2 G-band data are available by this step,
     # then add Gaia DR2 G_BP and G_RP data with appropriate uncertainties
@@ -225,9 +216,7 @@ def run_isochrones(row,name):
     """
     #You set the information about possible composition.
     model1.set_prior(feh=FlatPrior((-2,0)), AV=PowerLawPrior(alpha=-2., bounds=(0.0001,1.0)))
-
     # model1.set_prior(feh=FlatPrior((-2, 0)))
-
     """
     you bound your grid to certain distances. The lower and upper limits of
     distances. Do not worry about the names of the columns (r_lo_photogeo)
@@ -246,11 +235,14 @@ def run_isochrones(row,name):
     """
     #model1._bounds['AV'] = (0,.3) #
     #model1._bounds['feh'] = (params['feh'][idx].values[0] - params['err_feh'][idx].values[0], params['feh'][idx].values[0] + params['err_feh'][idx].values[0])
-    #Runs and saves the results.
+
+    #I create a directory based on the Gaia_dr2_source_id, and save both physical plot and observed plot to that directory
     if os.path.isdir("./{n}_plots/{id}".format(n=name,id=int(row['dr3_source_id'].values[0]))) == False:
         os.mkdir("./{n}_plots/{id}".format(n=name,id=int(row['dr3_source_id'].values[0])))
+    #fit the model
     model1.fit(refit=True,n_live_points=1000,evidence_tolerance=0.5, max_iter=75000)
     model1.derived_samples.to_csv("{f}_isochrones/{id}_take2.csv".format(f=name,id=int(row['dr3_source_id'].values[0])), index_label='index')
+    #save the plots
     plot1 = model1.corner_observed()
     plt.savefig("{f}_plots/{id1}/corner_{id2}.png".format(f=name,id1=int(row['dr3_source_id'].values[0]),id2=int(row['dr3_source_id'].values[0])))
     plot2 = model1.corner_physical()
@@ -263,9 +255,6 @@ def run_isochrones(row,name):
     plt.clf()# cleans your plot1
     plt.close('all') #closes everything
     #Now when it leaves this function all local variables will be deleted!
-    #but keep in mind that matplotlib might keep plots open in the memory so we need
-    #to close them
-
 
 
 
@@ -303,147 +292,4 @@ def read_isochrones(name):
         except OSError:
             continue
     f.close()
-
-def check_parallax(name):
-    count = 0
-    params = at.read("./isochrones_input/{}_isochrones.csv".format(name), delimiter=",", header_start=0)
-    stars = params['dr3_source_id']
-    for s in range(0,1200):
-        try:
-            i = int(stars[s])
-            data = pd.read_csv('./{f}_isochrones/{id}_take2.csv'.format(f=name, id=i))
-            med = data['parallax'].median()
-            sigma = data['parallax'].std()
-            parallax = params['parallax'][s]
-            if parallax>(med + sigma*3) or parallax < (med - sigma*3):
-                if (parallax-med)>1 or (parallax-med)<-1:
-                    print(data["AV"].median())
-                    count += 1
-
-        except OSError:
-            continue
-    print(count)
-
-
-def scatter_plot(name):
-    if name == "galah":
-        filename = "./spectro/galah_dr3_low_met.csv"
-    elif name == "rave":
-        filename =  "./spectro/rave_dr6_low_met.csv"
-    elif name == "lamost":
-        filename = "./spectro/lamost_dr6_lrs_low_met.csv"
-    #open isochrones results and spectrocopic info and read into pandas dataframe
-    iso = pd.read_csv("{}_iso_params_2.csv".format(name))
-    spectro = pd.read_csv(filename)
-
-    source_id=[]
-
-    iso_feh=[] #posterior median
-    iso_feh16=[]
-    iso_feh84=[]
-    iso_feh_unc=[]
-    spectro_feh=[] #spectroscopic info
-    spectro_feh_unc=[]
-
-
-
-    iso_logg=[] #posterior median
-    iso_logg16=[]
-    iso_logg84=[]
-    spectro_logg=[] #spectroscopic info
-    spectro_logg_unc=[]
-
-    iso_teff = []  # posterior median
-    iso_teff16 = []
-    iso_teff84 = []
-    spectro_teff = []  # spectroscopic info
-    spectro_teff_unc = []
-
-    his = []
-
-    count = 0
-
-    for i in range(0,len(iso)):
-    # for i in random.sample(range(0,len(iso)),):
-        for j in range(i,len(spectro['source_id'])):
-            if iso['id'].values[i] == spectro['source_id'].values[j]:
-
-                if iso['feh'].values[i]+iso['feh_16'].values[i]>-0.5:
-                    count+=1
-                source_id.append(iso['id'].values[i])
-                iso_feh.append(iso['feh'].values[i])
-                iso_feh16.append(0-iso['feh_16'].values[i])
-                iso_feh84.append(iso['feh_84'].values[i])
-                iso_feh_unc.append(iso['e_feh'].values[i])
-                spectro_feh.append(spectro['feh'].values[j])
-                spectro_feh_unc.append(spectro['feh_unc'].values[j])
-
-                iso_logg.append(iso['logg'].values[i])
-                iso_logg16.append(0-iso['logg_16'].values[i])
-                iso_logg84.append(iso['logg_84'].values[i])
-                spectro_logg.append(spectro['logg'].values[j])
-                spectro_logg_unc.append(spectro['logg_unc'].values[j])
-
-                iso_teff.append(iso['teff'].values[i])
-                iso_teff16.append(0-iso['teff_16'].values[i])
-                iso_teff84.append(iso['teff_84'].values[i])
-                spectro_teff.append(spectro['teff'].values[j])
-                spectro_teff_unc.append(spectro['teff_unc'].values[j])
-
-                n = len(iso_feh)-1
-                x = (spectro_feh[n]-iso_feh[n])/math.sqrt(spectro_feh_unc[n]**2+iso_feh_unc[n]**2)
-                his.append(x)
-                break
-
-    plt.figure(1)
-    ax = plt.gca()
-    plt.xlabel("Spectroscopic [FE/H]")
-    plt.ylabel('Isochrone [FE/H]')
-    plt.errorbar(spectro_feh,iso_feh,yerr=[iso_feh16,iso_feh84],xerr=[spectro_feh_unc,spectro_feh_unc],fmt='o',capsize=5,ecolor='black')
-    # plt.errorbar(spectro_feh, iso_feh, yerr=[iso_feh16, iso_feh84],  fmt='o',capsize=5, ecolor='black')
-    lims = [
-        np.min([ax.get_xlim(), ax.get_ylim()]),  # min of both axes
-        np.max([ax.get_xlim(), ax.get_ylim()]),  # max of both axes
-    ]
-    plt.plot(lims,lims)
-    # for j in range(len(source_id)):
-    #     y=iso_feh[j]
-    #     x=spectro_feh[j]
-    #     plt.annotate(source_id[j],(x,y))
-
-    # plt.show()
-    plt.savefig("./iso-spec/{}_feh.png".format(name))
-
-
-    plt.figure(2)
-    ax = plt.gca()
-    plt.xlabel("Spectroscopic [LOGG]")
-    plt.ylabel('Isochrone [LOGG]')
-    plt.errorbar(spectro_logg,iso_logg,yerr=[iso_logg16,iso_logg84],xerr=[spectro_logg_unc,spectro_logg_unc],fmt='o',capsize=5,ecolor='black')
-    # plt.errorbar(spectro_logg, iso_logg, yerr=[iso_logg16, iso_logg84],fmt='o', capsize=5, ecolor='black')
-    lims = [
-        np.min([ax.get_xlim(), ax.get_ylim()]),  # min of both axes
-        np.max([ax.get_xlim(), ax.get_ylim()]),  # max of both axes
-    ]
-    plt.plot(lims,lims)
-    # plt.show()
-    plt.savefig("./iso-spec/{}_logg.png".format(name))
-
-    plt.figure(3)
-    ax = plt.gca()
-    plt.xlabel("Spectroscopic [TEFF]")
-    plt.ylabel('Isochrone [TEFF]')
-    plt.errorbar(spectro_teff, iso_teff, yerr=[iso_teff16, iso_teff84], xerr=[spectro_teff_unc, spectro_teff_unc],fmt='o', capsize=5, ecolor='black')
-    # plt.errorbar(spectro_teff, iso_teff, yerr=[iso_teff16, iso_teff84],fmt='o', capsize=5, ecolor='black')
-    lims = [
-        np.min([ax.get_xlim(), ax.get_ylim()]),  # min of both axes
-        np.max([ax.get_xlim(), ax.get_ylim()]),  # max of both axes
-    ]
-    plt.plot(lims, lims)
-    # plt.show()
-    plt.savefig("./iso-spec/{}_teff.png".format(name))
-
-    plt.figure(4)
-    plt.hist(his)
-    plt.savefig("./iso-spec/{}_his.png".format(name))
 
