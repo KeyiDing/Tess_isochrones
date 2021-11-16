@@ -5,6 +5,8 @@ import pandas as pd
 import numpy as np
 
 def main():
+    #a name reference to the input file that's running. This name is used for organizing directories that saves the plot
+    #and derived samples
     name="lamost"
     #I am reding the input data as a pandas dataframe because it handles large files much better
     #and saves memory. Also, it is faster. I set up the data type for source id to read the entire number as integer

@@ -258,7 +258,7 @@ def run_isochrones(row,name):
 
     #save the derived sample to a csv file
     model1.derived_samples.to_csv("{f}_isochrones/{id}_take2.csv".format(f=name,id=int(row['dr3_source_id'].values[0])), index_label='index')
-    #save the plots
+    #save the plots (the file name I'm using is Gaia_edr3 source_id, change this based on your need)
     plot1 = model1.corner_observed()
     plt.savefig("{f}_plots/{id1}/corner_{id2}.png".format(f=name,id1=int(row['dr3_source_id'].values[0]),id2=int(row['dr3_source_id'].values[0])))
     plot2 = model1.corner_physical()
