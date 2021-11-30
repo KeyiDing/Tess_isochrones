@@ -241,18 +241,19 @@ def run_isochrones(row,name):
         os.mkdir("./{n}_plots/{id}".format(n=name,id=int(row['dr3_source_id'].values[0])))
     #fit the model, max_iter is set to prevent multinest from starting from a "wrong" point so that it takes a long time and 
     #huge amount of memory to fit the parameters
-    model1.fit(refit=True,n_live_points=1000,evidence_tolerance=0.5, max_iter=75000)
+    #to run multiple jobs at the same time, give unique basename to each job to avoid file I/O conflict
+    model1.fit(refit=True,n_live_points=1000,evidence_tolerance=0.5, max_iter=75000,basename="chain-2")
     
     #a "protection mechanism" that ensures the derived samples is large enough to produce the plots once max_iter is set
     #unlikely to reach this if statement
     if len(model1.derived_samples)<8 or len(model1.derived_samples)<len(bands):
         model1 = SingleStarModel(mist, **params_iso, **mags_iso)
         model1.set_prior(feh=FlatPrior((-2, 0)), AV=PowerLawPrior(alpha=-2., bounds=(0.0001, 1.0)))
-        model1.fit(refit=True, n_live_points=1000, evidence_tolerance=0.5, max_iter=150000)
+        model1.fit(refit=True, n_live_points=1000, evidence_tolerance=0.5, max_iter=150000,basename="chain-2")
         if len(model1.derived_samples)<8 or len(model1.derived_samples)<len(bands):
             model1 = SingleStarModel(mist, **params_iso, **mags_iso)
             model1.set_prior(feh=FlatPrior((-2, 0)), AV=PowerLawPrior(alpha=-2., bounds=(0.0001, 1.0)))
-            model1.fit(refit=True, n_live_points=1000, evidence_tolerance=0.5, max_iter=225000)
+            model1.fit(refit=True, n_live_points=1000, evidence_tolerance=0.5, max_iter=225000,basename="chain-2")
             if len(model1.derived_samples) < 8 or len(model1.derived_samples)<len(bands):
                 return
 
@@ -308,146 +309,3 @@ def read_isochrones(name):
         except OSError:
             continue
     f.close()
-
-def check_parallax(name):
-    count = 0
-    params = at.read("./isochrones_input/{}_isochrones.csv".format(name), delimiter=",", header_start=0)
-    stars = params['dr3_source_id']
-    for s in range(0,1200):
-        try:
-            i = int(stars[s])
-            data = pd.read_csv('./{f}_isochrones/{id}_take2.csv'.format(f=name, id=i))
-            med = data['parallax'].median()
-            sigma = data['parallax'].std()
-            parallax = params['parallax'][s]
-            if parallax>(med + sigma*3) or parallax < (med - sigma*3):
-                if (parallax-med)>1 or (parallax-med)<-1:
-                    print(data["AV"].median())
-                    count += 1
-
-        except OSError:
-            continue
-    print(count)
-
-
-def scatter_plot(name):
-    if name == "galah":
-        filename = "./spectro/galah_dr3_low_met.csv"
-    elif name == "rave":
-        filename =  "./spectro/rave_dr6_low_met.csv"
-    elif name == "lamost":
-        filename = "./spectro/lamost_dr6_lrs_low_met.csv"
-    #open isochrones results and spectrocopic info and read into pandas dataframe
-    iso = pd.read_csv("{}_iso_params_2.csv".format(name))
-    spectro = pd.read_csv(filename)
-
-    source_id=[]
-
-    iso_feh=[] #posterior median
-    iso_feh16=[]
-    iso_feh84=[]
-    iso_feh_unc=[]
-    spectro_feh=[] #spectroscopic info
-    spectro_feh_unc=[]
-
-
-
-    iso_logg=[] #posterior median
-    iso_logg16=[]
-    iso_logg84=[]
-    spectro_logg=[] #spectroscopic info
-    spectro_logg_unc=[]
-
-    iso_teff = []  # posterior median
-    iso_teff16 = []
-    iso_teff84 = []
-    spectro_teff = []  # spectroscopic info
-    spectro_teff_unc = []
-
-    his = []
-
-    count = 0
-
-    for i in range(0,len(iso)):
-    # for i in random.sample(range(0,len(iso)),):
-        for j in range(i,len(spectro['source_id'])):
-            if iso['id'].values[i] == spectro['source_id'].values[j]:
-
-                if iso['feh'].values[i]+iso['feh_16'].values[i]>-0.5:
-                    count+=1
-                source_id.append(iso['id'].values[i])
-                iso_feh.append(iso['feh'].values[i])
-                iso_feh16.append(0-iso['feh_16'].values[i])
-                iso_feh84.append(iso['feh_84'].values[i])
-                iso_feh_unc.append(iso['e_feh'].values[i])
-                spectro_feh.append(spectro['feh'].values[j])
-                spectro_feh_unc.append(spectro['feh_unc'].values[j])
-
-                iso_logg.append(iso['logg'].values[i])
-                iso_logg16.append(0-iso['logg_16'].values[i])
-                iso_logg84.append(iso['logg_84'].values[i])
-                spectro_logg.append(spectro['logg'].values[j])
-                spectro_logg_unc.append(spectro['logg_unc'].values[j])
-
-                iso_teff.append(iso['teff'].values[i])
-                iso_teff16.append(0-iso['teff_16'].values[i])
-                iso_teff84.append(iso['teff_84'].values[i])
-                spectro_teff.append(spectro['teff'].values[j])
-                spectro_teff_unc.append(spectro['teff_unc'].values[j])
-
-                n = len(iso_feh)-1
-                x = (spectro_feh[n]-iso_feh[n])/math.sqrt(spectro_feh_unc[n]**2+iso_feh_unc[n]**2)
-                his.append(x)
-                break
-
-    plt.figure(1)
-    ax = plt.gca()
-    plt.xlabel("Spectroscopic [FE/H]")
-    plt.ylabel('Isochrone [FE/H]')
-    plt.errorbar(spectro_feh,iso_feh,yerr=[iso_feh16,iso_feh84],xerr=[spectro_feh_unc,spectro_feh_unc],fmt='o',capsize=5,ecolor='black')
-    # plt.errorbar(spectro_feh, iso_feh, yerr=[iso_feh16, iso_feh84],  fmt='o',capsize=5, ecolor='black')
-    lims = [
-        np.min([ax.get_xlim(), ax.get_ylim()]),  # min of both axes
-        np.max([ax.get_xlim(), ax.get_ylim()]),  # max of both axes
-    ]
-    plt.plot(lims,lims)
-    # for j in range(len(source_id)):
-    #     y=iso_feh[j]
-    #     x=spectro_feh[j]
-    #     plt.annotate(source_id[j],(x,y))
-
-    # plt.show()
-    plt.savefig("./iso-spec/{}_feh.png".format(name))
-
-
-    plt.figure(2)
-    ax = plt.gca()
-    plt.xlabel("Spectroscopic [LOGG]")
-    plt.ylabel('Isochrone [LOGG]')
-    plt.errorbar(spectro_logg,iso_logg,yerr=[iso_logg16,iso_logg84],xerr=[spectro_logg_unc,spectro_logg_unc],fmt='o',capsize=5,ecolor='black')
-    # plt.errorbar(spectro_logg, iso_logg, yerr=[iso_logg16, iso_logg84],fmt='o', capsize=5, ecolor='black')
-    lims = [
-        np.min([ax.get_xlim(), ax.get_ylim()]),  # min of both axes
-        np.max([ax.get_xlim(), ax.get_ylim()]),  # max of both axes
-    ]
-    plt.plot(lims,lims)
-    # plt.show()
-    plt.savefig("./iso-spec/{}_logg.png".format(name))
-
-    plt.figure(3)
-    ax = plt.gca()
-    plt.xlabel("Spectroscopic [TEFF]")
-    plt.ylabel('Isochrone [TEFF]')
-    plt.errorbar(spectro_teff, iso_teff, yerr=[iso_teff16, iso_teff84], xerr=[spectro_teff_unc, spectro_teff_unc],fmt='o', capsize=5, ecolor='black')
-    # plt.errorbar(spectro_teff, iso_teff, yerr=[iso_teff16, iso_teff84],fmt='o', capsize=5, ecolor='black')
-    lims = [
-        np.min([ax.get_xlim(), ax.get_ylim()]),  # min of both axes
-        np.max([ax.get_xlim(), ax.get_ylim()]),  # max of both axes
-    ]
-    plt.plot(lims, lims)
-    # plt.show()
-    plt.savefig("./iso-spec/{}_teff.png".format(name))
-
-    plt.figure(4)
-    plt.hist(his)
-    plt.savefig("./iso-spec/{}_his.png".format(name))
