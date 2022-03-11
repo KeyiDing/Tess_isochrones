@@ -75,7 +75,7 @@ def run_isochrones(row,name):
     if row['galex_nuv'].isna().values[0]==False:
         count += 1
         bands.append('GALEX_NUV')
-        mags_iso['GALEX_NUV'] = (row['galex_nuv'].values[0],row['galex_nuv'].values[0])
+        mags_iso['GALEX_NUV'] = (row['galex_nuv'].values[0],row['galex_nuv_unc'].values[0])
 
     # a flag variable that checks if SkyMapper U band exists
     #if only SkyMapper u-band data available, then use SkyMapper
